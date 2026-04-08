@@ -1,0 +1,33 @@
+version: "3.9"
+
+# Minimal dev stack for CapyClaw testing (avoids port conflicts)
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: capyclaw
+      POSTGRES_PASSWORD: capyclaw_dev
+      POSTGRES_DB: capyclaw
+    ports:
+      - "18700:5432"
+    volumes:
+      - capyclaw_pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capyclaw"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "18800:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  capyclaw_pg_dev:

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: capyclaw
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/component: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: gateway
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: gateway
+          image: capyclaw/gateway:latest
+          ports:
+            - name: http
+              containerPort: 18789
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          env:
+            - name: CAPYCLAW_POND_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: capyclaw-secrets
+                  key: postgres-password
+            - name: CAPYCLAW_PROVIDERS_ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: capyclaw-secrets
+                  key: anthropic-api-key
+          volumeMounts:
+            - name: config
+              mountPath: /etc/capyclaw
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: gateway-config
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway
+  namespace: capyclaw

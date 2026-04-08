@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1.7
+# Multi-stage build for the CapyClaw gateway binary.
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM golang:1.25-bookworm AS builder
+
+WORKDIR /src
+
+# Cache dependency downloads separately from source compilation.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w -X main.Version=$(git describe --tags --always 2>/dev/null || echo dev)" \
+    -o /bin/capyclaw-gateway ./cmd/gateway
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=builder /bin/capyclaw-gateway /capyclaw-gateway
+
+EXPOSE 18789
+
+ENTRYPOINT ["/capyclaw-gateway"]
